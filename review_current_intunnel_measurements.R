@@ -122,6 +122,8 @@ all.data <- merge(all.data,data.503,
 
 #' ## Carbon Monoxide [ppm]
 #' 
+#' ### Instantaneous
+summary(all.data[,c('CO.501','CO.502','CO.503')], digits = 2)
 #' ### 15 Minutes
 summary(timeAverage(all.data,avg.time = '15 min')[,c('CO.501','CO.502','CO.503')], digits = 2)
 #' ### 30 Minutes
@@ -133,6 +135,8 @@ summary(timeAverage(all.data,avg.time = '8 hour')[,c('CO.501','CO.502','CO.503')
 
 #' ## Nitric Oxide [ppm]
 #' 
+#' ### Instantaneous
+summary(all.data[,c('NO.501','NO.502','NO.503')], digits = 2)
 #' ### 15 Minutes
 summary(timeAverage(all.data,avg.time = '15 min')[,c('NO.501','NO.502','NO.503')], digits = 2)
 #' ### 1 Hour
@@ -142,6 +146,8 @@ summary(timeAverage(all.data,avg.time = '8 hour')[,c('NO.501','NO.502','NO.503')
 
 #' ## Nitrogen Dioxide [ppm]
 #' 
+#' ### Instantaneous
+summary(all.data[,c('NO2.501','NO2.502','NO2.503')], digits = 2)
 #' ### 15 Minutes
 summary(timeAverage(all.data,avg.time = '15 min')[,c('NO2.501','NO2.502','NO2.503')], digits = 2)
 #' ### 1 hour
