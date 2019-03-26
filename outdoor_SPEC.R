@@ -1,5 +1,5 @@
 #' ---
-#' title: "Indoor SPEC sensors online"
+#' title: "Outdoor SPEC sensors online"
 #' author: Gustavo Olivares
 #' output: pdf_document
 #' ---
@@ -39,7 +39,7 @@ jreq1 <- fromJSON(rawToChar(req1$content))
 x_now <- Sys.time()
 print(x_now)
 # UTC time start
-t_start <- as.numeric(as.POSIXct("2018/10/25 12:00:00",tz = "GMT-12"))
+t_start <- as.numeric(as.POSIXct("2018/12/13 20:00:00",tz = "GMT-12"))
 # UTC time end ... now
 t_end <- floor(as.numeric(x_now))
 # Set the averaging interval
@@ -57,7 +57,7 @@ data.spec$SN_NO2 <- as.numeric(xx2[seq(6,ndata,7)])
 data.spec$CO.NO2 <- data.spec$CO/data.spec$NO2
 # Plot data ####
 avg_plot <- '5 min'
-data.spec <- subset(data.spec,date>as.POSIXct("2018-11-12 00:00"))
+data.spec <- subset(data.spec,date>as.POSIXct(t_start,origin = '1970-01-01 00:00'))
 timePlot(data.spec,
          pollutant = c('CO','NO2','CO.NO2'),
          main = "SPEC sensors In Tunnel",
@@ -67,7 +67,7 @@ timePlot(data.spec,
 timePlot(data.spec,
          pollutant = c('NO2'),
          main = "SPEC sensors In Tunnel",
-         ylim = c(0,200),
+         ylim = c(-10,50),
          avg.time = avg_plot)
 
 timePlot(data.spec,
@@ -89,18 +89,18 @@ timeVariation(data.spec,
 
 timePlot(data.spec,
          pollutant = c('CO','NO2'),
-         main = "SPEC sensors In Tunnel",
+         main = "SPEC sensors In Portal",
          y.relation = "free",
          avg.time = avg_plot)
 
 timePlot(data.spec,
          pollutant = c('CO','NO2'),
-         main = "SPEC sensors In Tunnel",
+         main = "SPEC sensors In Portal",
          y.relation = "free",
          avg.time = avg_plot)
 
 timePlot(data.spec,
          pollutant = c('NO2'),
-         main = "SPEC sensors In Tunnel",
+         main = "SPEC sensors In Portal",
          y.relation = "free",
          avg.time = avg_plot)
