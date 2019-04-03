@@ -30,23 +30,28 @@ shelf(readr,
 # Read the secrets
 secret_hologram <- read_delim("./secret_hologram.txt", 
                               "\t", escape_double = FALSE, trim_ws = TRUE)
-# Get the devices ID #####
-base_url <- "https://dashboard.hologram.io/api/1/devices?"
-tag <- "waterview_outdoor"
+# Get the tag list
+base_url <- "https://dashboard.hologram.io/api/1/devices/tags?"
 built_url <- paste0(base_url,
                     "orgid=",secret_hologram$orgid,"&",
-                    "tagname=",tag,"&",
                     "apikey=",secret_hologram$apikey)
 req1 <- curl_fetch_memory(built_url)
-jreq1 <- fromJSON(rawToChar(req1$content))$data
-nsites <- length(jreq1)
-curr_data <- data.frame(deviceid = (1:nsites),ODIN = NA)
-for (i in (1:nsites)){
-  curr_data$deviceid[i] <- jreq1[[i]]$id
-  curr_data$ODIN[i] <- jreq1[[i]]$name
+jreq1 <- fromJSON(rawToChar(req1$content))$data$tags
+ntags <- length(jreq1)
+all_tags <- data.frame(id = (1:ntags),name = NA,topic = NA)
+
+for (i in (1:ntags)){
+  all_tags$id[i] <- jreq1[[i]]$id
+  all_tags$name[i] <- jreq1[[i]]$name
+  all_tags$topic[i] <- paste0("_TAG_",jreq1[[i]]$id,"_")
+}
+wanted_tags_human <- c("waterview_outdoor","waterview","waterview_indoor")
+tags <- subset(all_tags,name %in% wanted_tags_human)
+wanted_tags <-tags$topic[1]
+for (i in (2:length(tags))){
+  wanted_tags <- paste0(wanted_tags,",",tags$topic[i])
 }
 
-x_dev <- curr_data$ODIN
 
 ## Get the timeseries data #####
 # UTC time start
@@ -63,117 +68,99 @@ ndata <- 1
 nstep <- 1
 print("Getting data")
 base_url <- "https://dashboard.hologram.io/api/1/csr/rdm?"
-for (i_dev in (1:nsites)){
-  print(curr_data$ODIN[i_dev])
-  nstep <- 1
-  while (ndata >= 1){
-    if (nstep == 1){
-      built_url <- paste0(base_url,
-                          "deviceid=",curr_data$deviceid[i_dev],"&",
-                          "timestart=",t_start,"&",
-                          "timeend=",t_end,"&",
-                          "limit=1000&",
-                          "orgid=",secret_hologram$orgid,"&",
-                          "apikey=",secret_hologram$apikey)
-      req2 <- curl_fetch_memory(built_url)
-      jreq2_tmp <- fromJSON(rawToChar(req2$content))$data
-      jreq2 <- jreq2_tmp
-    } else {
-      built_url <- paste0(base_url,
-                          "deviceid=",curr_data$deviceid[i_dev],"&",
-                          "timestart=",t_start,"&",
-                          "timeend=",t_end,"&",
-                          "limit=1000&",
-                          "startat=",startat,"&",
-                          "orgid=",secret_hologram$orgid,"&",
-                          "apikey=",secret_hologram$apikey)
-      req2 <- curl_fetch_memory(built_url)
-      jreq2_tmp <- fromJSON(rawToChar(req2$content))$data
-      jreq2 <- append(jreq2,fromJSON(rawToChar(req2$content))$data)
-    }
-    
-    print(ndata <- length(jreq2_tmp))
-    if (ndata < 1){
-      break
-    }
-    startat <- jreq2_tmp[[ndata]]$id
-    nstep <- nstep + 1
-    print(jreq2_tmp[[ndata]]$logged)
-  }
-  
-  ndata <- length(jreq2)
-  print("Got data")
-  print(ndata)
-  if (ndata < 1){
-    # This device didn't have data for this period
-    next
-  }
-  c_data <- data.frame(id = (1:ndata))
-  c_data$PM1 <- NA
-  c_data$PM2.5 <- NA
-  c_data$PM10 <- NA
-  c_data$PMc <- NA
-  c_data$GAS1 <- NA
-  c_data$Tgas1 <- NA
-  c_data$GAS2 <- NA
-  c_data$Temperature <- NA
-  c_data$RH <- NA
-  c_data$date <- as.POSIXct(jreq2[[ndata]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
-  c_data$timestamp <- c_data$date
-  c_data$serialn <- curr_data$ODIN[i_dev]
-  
-  for (i in (1:ndata)){
-    xxx <- rawToChar(base64decode(fromJSON(jreq2[[i]]$data)$data))
-    x_payload <- try(fromJSON(xxx),silent = TRUE)
-    if (inherits(x_payload,"try-error")) {
-      next
-    }
-    
-    payload <- unlist(x_payload)
-    if (length(payload)<5){
-      next
-    }
-    # {"PM1":4,"PM2.5":6,"PM10":6,"GAS1":-999,"Tgas1":0,"GAS2":204,"Temperature":7.35,"RH":80.85,"recordtime":"2018/07/11;00:21:01"}
-    c_data$PM1[i] <- as.numeric(payload[1])
-    c_data$PM2.5[i] <- as.numeric(payload[2])
-    c_data$PM10[i] <- as.numeric(payload[3])
-    c_data$PMc[i] <- as.numeric(payload[3]) - as.numeric(payload[2])
-    c_data$GAS1[i] <- as.numeric(payload[4])
-    c_data$Tgas1[i] <- as.numeric(payload[5])
-    c_data$GAS2[i] <- as.numeric(payload[6])
-    c_data$Temperature[i] <- as.numeric(payload[7])
-    c_data$RH[i] <- as.numeric(payload[8])
-    c_data$date[i] <- as.POSIXct(as.character(payload[9]),format = "%Y/%m/%d;%H:%M:%S",tz="UTC")
-    c_data$timestamp[i] <- as.POSIXct(jreq2[[i]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
-  }
-  
-  has_data <- try(length(c_data$PM1),silent = TRUE)
-  if (inherits(has_data,"try-error")) {
-    next
-  }
-  print(min(c_data$timestamp))
-  print(max(c_data$timestamp))
-  wrong_dates <- which(is.na(c_data$date) | (c_data$date <= as.POSIXct("2018/01/01")) | c_data$date > as.POSIXct(Sys.time()))
-  tmp_error_catching <- try(c_data$date[wrong_dates] <- c_data$timestamp[wrong_dates],
-                            silent = TRUE)
-  wrong_dates <- which(c_data$date <= as.POSIXct("2010/01/01"))
-  tmp_error_catching <- try(c_data$date[wrong_dates] <- NA,
-                            silent = TRUE)
-  print(min(c_data$date))
-  print(max(c_data$date))
-  if (i_dev==1){
-    all_data <- c_data
-    all_data.tavg <- timeAverage(c_data,avg.time = time_avg)
-    all_data.tavg$serialn <- curr_data$ODIN[i_dev]
+
+while (ndata >= 1){
+  if (nstep == 1){
+    built_url <- paste0(base_url,
+                        "topicnames=",wanted_tags,"&",
+                        "timestart=",t_start,"&",
+                        "timeend=",t_end,"&",
+                        "limit=1000&",
+                        "orgid=",secret_hologram$orgid,"&",
+                        "apikey=",secret_hologram$apikey)
+    req2 <- curl_fetch_memory(built_url)
+    jreq2_tmp <- fromJSON(rawToChar(req2$content))$data
+    jreq2 <- jreq2_tmp
   } else {
-    all_data <- rbind(all_data,c_data)
-    c_data2 <- timeAverage(c_data,avg.time = time_avg)
-    c_data2$serialn <- curr_data$ODIN[i_dev]
-    all_data.tavg <- rbind(all_data.tavg,c_data2)
-    rm(c_data2)
+    built_url <- paste0(base_url,
+                        "topicnames=",wanted_tags,"&",
+                        "timestart=",t_start,"&",
+                        "timeend=",t_end,"&",
+                        "limit=1000&",
+                        "startat=",startat,"&",
+                        "orgid=",secret_hologram$orgid,"&",
+                        "apikey=",secret_hologram$apikey)
+    req2 <- curl_fetch_memory(built_url)
+    jreq2_tmp <- fromJSON(rawToChar(req2$content))$data
+    jreq2 <- append(jreq2,fromJSON(rawToChar(req2$content))$data)
   }
-  rm(c_data)
+  
+  print(ndata <- length(jreq2_tmp))
+  if (ndata < 1){
+    break
+  }
+  startat <- fromJSON(rawToChar(req2$content))$lastid
+  nstep <- nstep + 1
+  print(jreq2_tmp[[ndata]]$logged)
 }
+
+ndata <- length(jreq2)
+print("Got data")
+
+c_data <- data.frame(id = (1:ndata))
+c_data$PM1 <- NA
+c_data$PM2.5 <- NA
+c_data$PM10 <- NA
+c_data$PMc <- NA
+c_data$GAS1 <- NA
+c_data$Tgas1 <- NA
+c_data$GAS2 <- NA
+c_data$Temperature <- NA
+c_data$RH <- NA
+c_data$date <- as.POSIXct(jreq2[[ndata]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
+c_data$timestamp <- c_data$date
+c_data$serialn <- curr_data$ODIN[i_dev]
+
+for (i in (1:ndata)){
+  xxx <- rawToChar(base64decode(fromJSON(jreq2[[i]]$data)$data))
+  x_payload <- try(fromJSON(xxx),silent = TRUE)
+  if (inherits(x_payload,"try-error")) {
+    next
+  }
+  
+  payload <- unlist(x_payload)
+  if (length(payload)<5){
+    next
+  }
+  # {"PM1":4,"PM2.5":6,"PM10":6,"GAS1":-999,"Tgas1":0,"GAS2":204,"Temperature":7.35,"RH":80.85,"recordtime":"2018/07/11;00:21:01"}
+  c_data$PM1[i] <- as.numeric(payload[1])
+  c_data$PM2.5[i] <- as.numeric(payload[2])
+  c_data$PM10[i] <- as.numeric(payload[3])
+  c_data$PMc[i] <- as.numeric(payload[3]) - as.numeric(payload[2])
+  c_data$GAS1[i] <- as.numeric(payload[4])
+  c_data$Tgas1[i] <- as.numeric(payload[5])
+  c_data$GAS2[i] <- as.numeric(payload[6])
+  c_data$Temperature[i] <- as.numeric(payload[7])
+  c_data$RH[i] <- as.numeric(payload[8])
+  c_data$date[i] <- as.POSIXct(as.character(payload[9]),format = "%Y/%m/%d;%H:%M:%S",tz="UTC")
+  c_data$timestamp[i] <- as.POSIXct(jreq2[[i]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
+}
+
+has_data <- try(length(c_data$PM1),silent = TRUE)
+if (inherits(has_data,"try-error")) {
+  next
+}
+print(min(c_data$timestamp))
+print(max(c_data$timestamp))
+wrong_dates <- which(is.na(c_data$date) | (c_data$date <= as.POSIXct("2018/01/01")) | c_data$date > as.POSIXct(Sys.time()))
+tmp_error_catching <- try(c_data$date[wrong_dates] <- c_data$timestamp[wrong_dates],
+                          silent = TRUE)
+wrong_dates <- which(c_data$date <= as.POSIXct("2010/01/01"))
+tmp_error_catching <- try(c_data$date[wrong_dates] <- NA,
+                          silent = TRUE)
+print(min(c_data$date))
+print(max(c_data$date))
+
 # wide data
 wide_data <- merge(subset(all_data,serialn == curr_data$ODIN[x_dev[1]]),
                    subset(all_data,serialn == curr_data$ODIN[x_dev[2]]),
