@@ -222,5 +222,5 @@ for (i_dev in (3:nodins)) {
                         paste0(names(all_data)[c(1:9,11:14)],'.',substr(odin_names[i_dev],6,9)))
 }
 
-save.image('./to_plot_odin.RData')
+save.image('./to_plot_odin.RData',compress = 'xz')
 save(all_data,all_devices,all_tags,wide_data,file = './odin_hologram.RData',compress = 'xz')
