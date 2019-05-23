@@ -25,13 +25,27 @@ shelf(readr,
       dplyr,
       RColorBrewer,
       purrr,
-      magick)
+      magick,
+      lubridate)
 
 # Read key
 read_address <- "http://penap-data.dyndns.org:8080/output/4mWeal6PZVSlE1kyNkQdCvVadDE.json"
 
 ## Get the timeseries data #####
-# Get the data #####
+# Get the Ecotech data #####
+data_path <- path.expand("~/data/Waterview2018/WTC_data/Outdoor/201812_north_portal.txt")
+all.data.portal <- read_delim(data_path, 
+                          "\t", 
+                          escape_double = FALSE,
+                          col_types = cols(DateTime = col_character(),
+                                           `PM₁₀` = col_integer(),
+                                           `PM₁₀ 24Hr Rolling` = col_integer()),
+                          trim_ws = TRUE)
+names(all.data.portal) <- c('date','NO','NO2','NOx','PM2.5','PM10','PM2.5.24hr','PM10.24hr','ws','wd')
+all.data.portal$date <- with_tz(as.POSIXct(all.data.portal$date, format = '%d/%m/%Y %H:%M',tz='Pacific/Auckland'),"UTC")
+data.portal <- subset(all.data.portal,(date > "2018-12-13")&(date<"2018-12-22"))
+
+# Get the SPEC data #####
 req1 <- curl_fetch_memory(read_address)
 jreq1 <- fromJSON(rawToChar(req1$content))
 
@@ -55,20 +69,24 @@ data.spec$T_NO2 <- as.numeric(xx2[seq(4,ndata,7)])
 data.spec$SN_CO <- as.numeric(xx2[seq(5,ndata,7)])
 data.spec$SN_NO2 <- as.numeric(xx2[seq(6,ndata,7)])
 data.spec$CO.NO2 <- data.spec$CO/data.spec$NO2
-# Plot data ####
-avg_plot <- '5 min'
-data.spec <- subset(data.spec,date>as.POSIXct(t_start,origin = '1970-01-01 00:00'))
-timePlot(data.spec,
-         pollutant = c('CO','NO2','CO.NO2'),
-         main = "SPEC sensors In Tunnel",
-         y.relation = "free",
-         avg.time = avg_plot)
 
-timePlot(data.spec,
-         pollutant = c('NO2'),
-         main = "SPEC sensors In Tunnel",
-         ylim = c(-10,50),
-         avg.time = avg_plot)
+data.spec <- subset(data.spec,date>as.POSIXct(t_start,origin = '1970-01-01 00:00'))
+
+# Merge data
+names(data.portal) <- c('date','NO','NO2','NOx','PM2.5','PM10','PM2.5.24hr','PM10.24hr','ws','wd')
+names(data.spec) <- c('date','COspec','T_CO','NO2spec','T_NO2','SN_CO','SN_NO2','CO.NO2')
+
+all.data <- merge(data.portal,data.spec,by = 'date',all = TRUE)
+all.data.1hr <- timeAverage(all.data,avg.time = '1 hour')
+
+# Plot data ####
+
+timePlot(all.data.1hr,
+         pollutant = c('NO2','NO2spec'),
+         main = "NO2 sensors outdoor",
+         y.relation = "free",
+         group = TRUE)
+
 
 timePlot(data.spec,
          pollutant = c('T_CO','T_NO2'),
@@ -78,8 +96,8 @@ timePlot(data.spec,
          avg.time = avg_plot)
 
 
-timeVariation(data.spec,
-              pollutant = c('NO2'))
+timeVariation(all.data.1hr,
+              pollutant = c('NO2','NO2spec','T_NO2'))
 
 timeVariation(data.spec,
               pollutant = c('CO'))
