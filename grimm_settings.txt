@@ -1,0 +1,21 @@
+/home/gustavo/data/Waterview2018/Grimm/tunnel/grimm_data.txt
+/home/gustavo/data/Waterview2018/Grimm/tunnel/parsed_grimm_data.txt
+11E
+TSP;PM10;PM2.5;PM1;n300
+
+<input raw data path>
+<output parsed data path>
+<Model Number: 107 (3ch mass)/108 (16ch cnt)/109 (31ch cnt)>
+<Channel sizes in nanometres: n/mDD>
+Samples:
+108
+n300;n400;n500;n650;n800;n1000;n1600;n2000;n3000;n4000;n5000;n7500;n10000;n20000;n50000
+
+109
+n265;n290;n324;n374;n424;n474;n539;n614;n675;n748;n894;n1140;n1442;n1789;n2236;n2739;n3240;n3742;n4472;n5701;n6982;n7984;n9220;n11180;n13693;n16202;n18708;n22361;n27386;n30984;n35000
+
+107
+n300;n400;n500;n650;n800;n1000;n1600;n2000;n3000;n4000;n5000;n7500;n10000;n20000;n50000
+
+11E
+TSP;PM10;PM2_5;PM1;n300

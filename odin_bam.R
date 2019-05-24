@@ -1,12 +1,13 @@
 #' ---
-#' title: "In-Tunnel ODIN + BAM"
+#' title: "In-Tunnel ODIN + BAM + Grimm"
 #' author: Gustavo Olivares
 #' output: html_document
 #' ---
 
 
 #'# Purpose
-#'The goal of this report is to document the comparison between the ODIN and the BAM when deployed in the Waterview tunnel during 2018.
+#'The goal of this report is to document the comparison between the ODIN, 
+#'the Grimm and the BAM when deployed in the Waterview tunnel during 2018.
 
 ##### Load relevant packages #####
 library(librarian) # To more flexibly manage packages
@@ -35,8 +36,19 @@ bam_data <- read_csv(paste0(data_path,"BAM/tunnel/bam_data.txt"),
 ## Remove date after 2018-11-21 21:00:38 UTC
 bam_data <- subset(bam_data, date < '2018-11-22 10:00:00')
 
-# ODIN
+# Grimm
+grimm_data <- read_delim(paste0(data_path,"Grimm/tunnel/parsed_grimm_data.txt"),
+                         delim = '\t')
+grimm_data$date <- with(grimm_data,as.POSIXct(paste0("20",Year,"/",
+                                                     Month,"/",
+                                                     Day," ",
+                                                     Hour,":",
+                                                     Minute,":",
+                                                     Second))) - 12*3600
+## Remove date before 2018-10-29 00:00:00
+grimm_data <- subset(grimm_data, date > '2018-10-29 00:00:00')
 
+# ODIN
 
 # Read the secrets
 secret_hologram <- read_delim("./secret_hologram.txt", 
@@ -67,7 +79,7 @@ for (i in (2:length(tags))){
 ## Get the timeseries data #####
 
 # UTC time start
-t_start <- as.numeric(as.POSIXct("2018/11/13 00:00:00",tz = "GMT-12"))
+t_start <- as.numeric(as.POSIXct("2018/11/01 00:00:00",tz = "GMT-12"))
 # UTC time end ... now
 t_end <- as.numeric(as.POSIXct("2018/11/23 00:00:00",tz = "GMT-12"))
 # Set the averaging interval
@@ -163,11 +175,21 @@ tmp_error_catching <- try(c_data$date[wrong_dates] <- NA,
                           silent = TRUE)
 # Merge ODIN and BAM data
 merged.data <- merge(c_data,bam_data,by = 'date', all = TRUE)
-# wide data
-wide_data <- merge(subset(all_data,serialn == curr_data$ODIN[x_dev[1]]),
-                   subset(all_data,serialn == curr_data$ODIN[x_dev[2]]),
-                   by = "date",
-                   all=TRUE)
-names(wide_data) <- c('date',
-                      paste0(names(all_data)[c(1:10,12:13)],'.',substr(curr_data$ODIN[1],6,9)),
-                      paste0(names(all_data)[c(1:10,12:13)],'.',substr(curr_data$ODIN[2],6,9)))
+# Add Grimm data
+merged.data <- merge(merged.data,grimm_data,by = 'date', all = TRUE)
+merged.data <- merged.data[,c(1,3,4,5,6,10,11,13,14,29,30,31,32,33)]
+names(merged.data) <- c('date',
+                        'PM1.ODIN',
+                        'PM2.5.ODIN',
+                        'PM10.ODIN',
+                        'PMc.ODIN',
+                        'Temperature',
+                        'RH',
+                        'SerialN',
+                        'PM2.5.BAM',
+                        'TSP.Grimm',
+                        'PM10.Grimm',
+                        'PM2.5.Grimm',
+                        'PM1.Grimm',
+                        'N300.Grimm')
+timePlot(merged.data,pollutant = c('PM2.5.ODIN','PM2.5.BAM','PM2.5.Grimm'),avg.time = '1 hour', group = TRUE)

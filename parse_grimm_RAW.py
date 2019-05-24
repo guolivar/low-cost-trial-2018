@@ -15,6 +15,8 @@ if model == '108':
 	pad_line = 'Nan\tNaN\tNaN'
 if model == '109':
 	pad_line = 'NaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN'
+if model == '11E':
+  pad_line = 'NaN\tNaN\tNaN\tNaN'
 parsed_file = open(output_file,'w')
 parsed_file.write('date\terror\t' + sizes_list + '\n')
 with open(input_file,'r') as datafile:
@@ -148,8 +150,36 @@ with open(input_file,'r') as datafile:
 				output_line = output_line + '\t' + '\t'.join(d_vec[1:9])
 			else:
 				invalid = 1
+		if model == '11E':
+			line = datafile.readline()
+			#print(line)
+			if not line: break
+			if len(line)<20: continue
+			while ((line) and (line[0]!='P')):
+				line = datafile.readline()
+				if len(line)<20:break
+			if len(line)<20: continue
+			if not line: break
+			#The starting point is a P line that's already in line
+			#Get date, time and error code
+			#idx1 = line.find(',')
+			p_vec = line[3:33].split()
+			c_timestamp = '\t'.join(p_vec)
+			output_line = c_timestamp + '\t'
+			invalid = 0
+			# Get 1 N_ line to populate the data lists
+			# First line
+			line = datafile.readline()
+			if not line: break
+			if (line[0]=='K'):line = datafile.readline();line = datafile.readline()
+			if not line: break
+			if ((line[0]=='N') and (len(line)>35)):
+				d_vec = line[2:].split()
+				output_line = output_line + '\t'.join(d_vec)
+			else:
+				invalid = 1
 		if invalid:
-			#There were not 1x2 (or 1x4) lines of data, i.e., not a full sample
+			#There was not a full sample
 			#So, print an invalid record
 			parsed_file.write(c_timestamp + '\t' + pad_line + '\n')
 		else:
