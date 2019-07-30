@@ -5,10 +5,9 @@
 #' ---
 
 ## Libraries
-library(librarian)
-shelf(readr,
-      readxl,
-      openair)
+library(readr)
+library(readxl)
+library(openair)
 
 ## Paths
 data.path <- path.expand('~/data/Waterview2018/WTJO_data/Indoor/')
@@ -61,9 +60,9 @@ names(no.data) <- c('date','NO')
 names(no2.data) <- c('date','NO2')
 names(vis.data) <- c('date','VIS')
 co.avg <- timeAverage(co.data,avg.time = t_base)
-no.avg <- timeAverage(co.data,avg.time = t_base)
-no2.avg <- timeAverage(co.data,avg.time = t_base)
-vis.avg <- timeAverage(co.data,avg.time = t_base)
+no.avg <- timeAverage(no.data,avg.time = t_base)
+no2.avg <- timeAverage(no2.data,avg.time = t_base)
+vis.avg <- timeAverage(vis.data,avg.time = t_base)
 # Merge data
 data.intunnel <- merge(co.avg,no.avg,by = 'date', all = TRUE)
 data.intunnel <- merge(data.intunnel,no2.avg,by = 'date', all = TRUE)

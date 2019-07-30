@@ -9,23 +9,23 @@
 # Fetch data from several units
 
 ##### Load relevant packages #####
-library(librarian) # To more flexibly manage packages
-shelf(readr,
-      reshape2,
-      ggplot2,
-      scales,
-      gstat,
-      RJSONIO,
-      curl,
-      base64enc,
-      zoo,
-      openair,
-      stringi,
-      viridis,
-      dplyr,
-      RColorBrewer,
-      purrr,
-      magick)
+
+library(readr)
+library(reshape2)
+library(ggplot2)
+library(scales)
+library(gstat)
+library(RJSONIO)
+library(curl)
+library(base64enc)
+library(zoo)
+library(openair)
+library(stringi)
+library(viridis)
+library(dplyr)
+library(RColorBrewer)
+library(purrr)
+library(magick)
 
 # Read key
 read_address <- "http://penap-data.dyndns.org:8080/output/4mWeal6PZVSlE1kyNkQdCvVadDE.json"
@@ -34,6 +34,7 @@ read_address <- "http://penap-data.dyndns.org:8080/output/4mWeal6PZVSlE1kyNkQdCv
 data.api <- read_delim("~/data/Waterview2018/APINOx/tunnel/LOF01.txt", 
                     "\t", escape_double = FALSE, col_names = FALSE, 
                     trim_ws = TRUE)
+data.api$X4 <- NULL
 start_date <- as.POSIXct("2018/11/21 22:15:00",tz = 'UTC')
 idx_vec <- (1:length(data.api$X1)) - 1
 data.api$date <- start_date + idx_vec
