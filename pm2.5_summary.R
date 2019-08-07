@@ -72,238 +72,31 @@ data.BAM.10min <- timeAverage(data.BAM,avg.time = '10 min')[,c('date','pm2.5')]
 names(data.BAM.10min) <- c('date','PM2.5.BAM')
 ###########
 #' ## ODIN
-# Read the secrets for ODIN data ####
-secret_hologram <- read_delim("./secret_hologram.txt", 
-                              "\t", escape_double = FALSE, trim_ws = TRUE)
-# Get the devices ID #####
-base_url <- "https://dashboard.hologram.io/api/1/devices?"
-built_url <- paste0(base_url,
-                    "orgid=",secret_hologram$orgid,"&",
-                    "limit=1000&",
-                    "apikey=",secret_hologram$apikey)
-req1 <- curl_fetch_memory(built_url)
-jreq1 <- fromJSON(rawToChar(req1$content))$data
-nsites <- length(jreq1)
-curr_data <- data.frame(deviceid = (1:nsites),ODIN = NA)
-for (i in (1:nsites)){
-  curr_data$deviceid[i] <- jreq1[[i]]$id
-  curr_data$ODIN[i] <- jreq1[[i]]$name
+
+if (!file.exists('./ODIN_full.RData')){
+  source('download_odin_hologram.R')
 }
+load('ODIN_full.RData')
 
-odin_nrs <- c("0053",
-              "0052",
-              "0075",
-              "0076",
-              "0077",
-              "0074",
-              "0072",
-              "0059")
+# Working dataset ###
+long.data.odin <- all_data[,c("date","PM2.5","Temperature","RH","serialn")]
+wide.PM2.5.data.odin <- reshape2::dcast(long.data.odin, date ~ serialn, value.var = "PM2.5",fun.aggregate = mean)
+names(wide.PM2.5.data.odin) <- c("date", paste0("PM2.5_",substr(names(wide.PM2.5.data.odin)[2:8],start = 6,stop = 9)))
+wide.Temp.data.odin <- reshape2::dcast(long.data.odin, date ~ serialn, value.var = "Temperature",fun.aggregate = mean)
+names(wide.Temp.data.odin) <- c("date", paste0("T_",substr(names(wide.Temp.data.odin)[2:8],start = 6,stop = 9)))
+wide.RH.data.odin <- reshape2::dcast(long.data.odin, date ~ serialn, value.var = "RH",fun.aggregate = mean)
+names(wide.RH.data.odin) <- c("date", paste0("RH_",substr(names(wide.RH.data.odin)[2:8],start = 6,stop = 9)))
 
-odin <- curr_data[1:length(odin_nrs),]
-for (i in (1:length(odin_nrs))){
-  odin_idx <- which(str_detect(curr_data$ODIN,odin_nrs[i]))
-  odin[i,] <-curr_data[odin_idx,]
-}
+data.odin <- merge(wide.PM2.5.data.odin,wide.Temp.data.odin,by='date',all=TRUE)
+data.odin <- merge(data.odin,wide.RH.data.odin,by='date',all=TRUE)
 
-deviceids <- paste(odin$deviceid,collapse = ",")
-
-## Get the timeseries data #####
-# UTC time start
-
-# UTC time start
-t_start <- as.numeric(as.POSIXct("2018/10/29 12:00:00",tz = "GMT-12"))
-# UTC time end ... now
-t_end <- floor(as.numeric(as.POSIXct("2018/12/23 12:00:00",tz = "GMT-12")))
-# Set the averaging interval
-time_avg <- '10 min'
-
-ndata <- 1
-nstep <- 1
-print("Getting data")
-base_url <- "https://dashboard.hologram.io/api/1/csr/rdm?"
-
-nstep <- 1
-while (ndata >= 1){
-  if (nstep == 1){
-    built_url <- paste0(base_url,
-                        "deviceids=",deviceids,"&",
-                        "timestart=",t_start,"&",
-                        "timeend=",t_end,"&",
-                        "limit=1000&",
-                        "orgid=",secret_hologram$orgid,"&",
-                        "apikey=",secret_hologram$apikey)
-    req2 <- curl_fetch_memory(built_url)
-    jreq2_tmp <- fromJSON(rawToChar(req2$content))$data
-    jreq2 <- jreq2_tmp
-  } else {
-    built_url <- paste0(base_url,
-                        "deviceids=",deviceids,"&",
-                        "timestart=",t_start,"&",
-                        "timeend=",t_end,"&",
-                        "limit=1000&",
-                        "startat=",startat,"&",
-                        "orgid=",secret_hologram$orgid,"&",
-                        "apikey=",secret_hologram$apikey)
-    req2 <- curl_fetch_memory(built_url)
-    jreq2_tmp <- fromJSON(rawToChar(req2$content))$data
-    jreq2 <- append(jreq2,fromJSON(rawToChar(req2$content))$data)
-  }
-  print(ndata <- length(jreq2_tmp))
-  if (ndata >=1){
-    startat <- jreq2_tmp[[ndata]]$id
-    print(jreq2_tmp[[ndata]]$logged)
-  }
-  nstep <- nstep + 1
-}
+data.odin.10min <- timeAverage(data.odin,avg.time = '1 min',
+                               start.date = strftime(min(data.odin$date, na.rm = TRUE),format = "%Y-%m-%d 00:00:00",tz="UTC"))
+data.odin.10min$PM2.5.odin <- rowMeans(data.odin.10min[,c(2,3,6,7)],na.rm = TRUE)
+data.odin.10min$T.odin <- rowMeans(data.odin.10min[,c(9,10,13,14)],na.rm = TRUE)
+data.odin.10min$RH.odin <- rowMeans(data.odin.10min[,c(16,17,20,21)],na.rm = TRUE)
 
 
-
-
-
-
-#### STILL TESTING ######
-# We'll do this in parallel because it takes A LONG time with a few 100k records
-#setup parallel backend to use many processors
-cores <- detectCores()
-cl <- makeCluster(2) #not to overload your computer
-registerDoParallel(cl)
-
-all_data <- foreach(i=1:ndata,
-                    .packages=c("base64enc","RJSONIO"),
-                    .combine=rbind,
-                    .errorhandling = 'remove') %dopar%
-                    {
-                      c_data <- data.frame(id = 1)
-                      c_data$PM1 <- NA
-                      c_data$PM2.5 <- NA
-                      c_data$PM10 <- NA
-                      c_data$PMc <- NA
-                      c_data$GAS1 <- NA
-                      c_data$Tgas1 <- NA
-                      c_data$GAS2 <- NA
-                      c_data$Temperature <- NA
-                      c_data$RH <- NA
-                      c_data$date <- NA
-                      c_data$timestamp <- NA
-                      c_data$deviceid <- NA
-                      c_data$tags <- NA
-                      xxx <- rawToChar(base64decode(fromJSON(jreq2[[i]]$data)$data))
-                      x_payload <- try(fromJSON(xxx),silent = TRUE)
-                      if (inherits(x_payload,"try-error")) {
-                        c_data
-                        next
-                      }
-                      payload <- unlist(x_payload)
-                      if (length(payload)<5){
-                        c_data
-                        next
-                      }
-                      # {"PM1":4,"PM2.5":6,"PM10":6,"GAS1":-999,"Tgas1":0,"GAS2":204,"Temperature":7.35,"RH":80.85,"recordtime":"2018/07/11;00:21:01"}
-                      c_data$PM1 <- as.numeric(payload[1])
-                      c_data$PM2.5 <- as.numeric(payload[2])
-                      c_data$PM10 <- as.numeric(payload[3])
-                      c_data$PMc <- as.numeric(payload[3]) - as.numeric(payload[2])
-                      c_data$GAS1 <- as.numeric(payload[4])
-                      c_data$Tgas1 <- as.numeric(payload[5])
-                      c_data$GAS2 <- as.numeric(payload[6])
-                      c_data$Temperature <- as.numeric(payload[7])
-                      c_data$RH <- as.numeric(payload[8])
-                      c_data$date <- as.POSIXct(as.character(payload[9]),format = "%Y/%m/%d;%H:%M:%S",tz="UTC")
-                      c_data$timestamp <- as.POSIXct(jreq2[[i]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
-                      c_data$deviceid <- jreq2[[i]]$deviceid
-                      c_data$tags <- paste((jreq2[[i]]$tags),collapse = ",")
-                      c_data
-                    }
-
-stopCluster(cl)
-
-
-######################################################3333
-
-
-
-
-
-
-
-
-
-
-
-
-ndata <- length(jreq2)
-c_data <- data.frame(id = (1:ndata))
-c_data$PM1 <- NA
-c_data$PM2.5 <- NA
-c_data$deviceid <- NA
-c_data$PM10 <- NA
-c_data$PMc <- NA
-c_data$GAS1 <- NA
-c_data$Tgas1 <- NA
-c_data$GAS2 <- NA
-c_data$Temperature <- NA
-c_data$RH <- NA
-c_data$date <- as.POSIXct(jreq2[[ndata]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
-c_data$timestamp <- c_data$date
-
-
-for (i in (1:ndata)){
-  xxx <- rawToChar(base64decode(fromJSON(jreq2[[i]]$data)$data))
-  x_payload <- try(fromJSON(xxx),silent = TRUE)
-  if (inherits(x_payload,"try-error")) {
-    next
-  }
-  
-  payload <- unlist(x_payload)
-  if (length(payload)<5){
-    next
-  }
-  # {"PM1":4,"PM2.5":6,"PM10":6,"GAS1":-999,"Tgas1":0,"GAS2":204,"Temperature":7.35,"RH":80.85,"recordtime":"2018/07/11;00:21:01"}
-  c_data$PM1[i] <- as.numeric(payload[1])
-  c_data$PM2.5[i] <- as.numeric(payload[2])
-  c_data$PM10[i] <- as.numeric(payload[3])
-  c_data$PMc[i] <- as.numeric(payload[3]) - as.numeric(payload[2])
-  c_data$GAS1[i] <- as.numeric(payload[4])
-  c_data$Tgas1[i] <- as.numeric(payload[5])
-  c_data$GAS2[i] <- as.numeric(payload[6])
-  c_data$Temperature[i] <- as.numeric(payload[7])
-  c_data$RH[i] <- as.numeric(payload[8])
-  c_data$timestamp[i] <- as.POSIXct(as.character(payload[9]),format = "%Y/%m/%d;%H:%M:%S",tz="UTC")
-  c_data$date[i] <- as.POSIXct(jreq2[[i]]$logged,format = "%Y-%m-%d %H:%M:%OS",tz="UTC")
-  c_data$deviceid[i] <- jreq2[[i]]$deviceid
-}
-
-
-wrong_dates <- which(is.na(c_data$date) | (c_data$date <= as.POSIXct("2018/01/01")) | c_data$date > as.POSIXct(Sys.time()))
-tmp_error_catching <- try(c_data$date[wrong_dates] <- c_data$timestamp[wrong_dates],
-                          silent = TRUE)
-wrong_dates <- which(c_data$date <= as.POSIXct("2010/01/01"))
-tmp_error_catching <- try(c_data$date[wrong_dates] <- NA,
-                          silent = TRUE)
-
-devices <- unique(c_data$deviceid)
-print(devices)
-
-
-# Working dataset ####
-data.odin <- merge(subset(c_data,deviceid == odin$deviceid[1])[,c(2,4)],
-                   subset(c_data,deviceid == odin$deviceid[1])[,c(2,4)],
-                   by = "date",
-                   all=TRUE)
-names(data.odin) <- c('date',
-                      paste0(substr(names(data.odin)[2],1,5),'.',substr(odin$ODIN[1],6,9)),
-                      paste0(substr(names(data.odin)[3],1,5),'.',substr(odin$ODIN[2],6,9)))
-for (i_dev in (3:length(odin_nrs))) {
-  print(i_dev)
-  c_names <- names(data.odin)
-  data.odin <- merge(data.odin,
-                     subset(c_data,deviceid == odin$deviceid[i_dev])[,c(2,4)],
-                     by = "date",
-                     all=TRUE)
-  names(data.odin) <- c(c_names,
-                        paste0(substr(names(c_data)[2],1,5),'.',substr(odin$ODIN[i_dev],6,9)))
-}
-data.odin.10min <- timeAverage(data.odin,avg.time = '10 min')
 ######
 #' Grimm
 # Load data ####
@@ -333,7 +126,8 @@ timePlot(rawdata.grimm,
 timeVariation(rawdata.grimm,
               pollutant = c('PM1.grimm','PM2.5.grimm','PM10.grimm','TSP.grimm'))
 # Working dataset ####
-data.grimm.10min <- timeAverage(rawdata.grimm,avg.time = '10 min')
+data.grimm.10min <- timeAverage(rawdata.grimm,avg.time = '1 min',
+                                start.date = strftime(min(rawdata.grimm$date, na.rm = TRUE),format = "%Y-%m-%d 00:00:00",tz="UTC"))
 
 ######
 #' Mote
@@ -370,7 +164,8 @@ timeVariation(rawdata.mote2,
 # Working dataset ####
 # Merge the two mote channels
 rawdata.mote <- merge(rawdata.mote1[,c(1,4,5,6,7)],rawdata.mote2[,c(1,7)],by = 'date',all = TRUE)
-data.mote.10min <- timeAverage(rawdata.mote,avg.time = '10 min')
+data.mote.10min <- timeAverage(rawdata.mote,avg.time = '1 min',
+                               start.date = strftime(min(rawdata.mote$date, na.rm = TRUE),format = "%Y-%m-%d 00:00:00",tz="UTC"))
 ##########
 #' ## Merging ALL data
 
@@ -386,8 +181,32 @@ data.merged <- merge(data.merged,
                      data.mote.10min,
                      by = 'date',
                      all = TRUE)
-#data.merged
+data.merged <- timeAverage(data.merged,avg.time = '10 min')
 
 #' # Results
+# Start date
+date1 <- "2018-11-22"
+date2 <- "2018-11-26"
+timePlot(selectByDate(data.merged,start=date1,end=date2),pollutant = names(data.merged)[c(2,24,29,36)],avg.time = '15 min', group = TRUE)
+timePlot(selectByDate(data.merged,start=date1,end=date2),pollutant = names(data.merged)[c(24,2,29,36)],avg.time = '15 min',group = TRUE)
 
-#timePlot(data.merged,pollutant = c('PM2.5.BAM','PM2.5.0074'),avg.time = '1 hour',group = TRUE)
+timePlot((data.merged),pollutant = names(data.merged)[c(12,13,16)],avg.time = '15 min',group = TRUE)
+
+scatterPlot(data.merged,x = "PM2.5.grimm",y = "PM2.5.BAM",linear = TRUE, avg.time = '1 hour')
+scatterPlot(data.merged,x = "PM2.5.mote",y = "PM2.5.BAM",linear = TRUE, avg.time = '1 hour')
+
+scatterPlot(data.merged,x = "PM2.5.odin",y = "PM2.5.BAM",linear = TRUE, avg.time = '1 hour')
+
+for ( i in c(3,4,7,8)){
+  scatterPlot(data.merged,x = names(data.merged)[i], y = "PM2.5.BAM" ,linear = TRUE)
+  invisible(readline(prompt="Press [enter] to continue"))
+}
+
+
+# Indoor ODINs  52, 53, 74, 75
+# Indices       3   4   7   8
+# Outdoor ODNIs 59, 72, 76
+# Indices       5   6   9
+
+scatterPlot(data.merged,x = "PM2.5.odin", y = "PM2.5.BAM" ,linear = TRUE, type = 'hour')
+
