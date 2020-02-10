@@ -25,8 +25,7 @@ shelf(readr,
       dplyr,
       RColorBrewer,
       purrr,
-      magick,
-      lubridate)
+      lubridate,lib = '/tmp')
 
 # Read key
 read_address <- "http://penap-data.dyndns.org:8080/output/4mWeal6PZVSlE1kyNkQdCvVadDE.json"

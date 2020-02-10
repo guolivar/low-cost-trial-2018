@@ -185,8 +185,8 @@ data.merged <- timeAverage(data.merged,avg.time = '10 min')
 
 #' # Results
 # Start date
-date1 <- "2018-11-22"
-date2 <- "2018-11-26"
+date1 <- "2018-11-01"
+date2 <- "2018-12-03"
 timePlot(selectByDate(data.merged,start=date1,end=date2),pollutant = names(data.merged)[c(2,24,29,36)],avg.time = '15 min', group = TRUE)
 timePlot(selectByDate(data.merged,start=date1,end=date2),pollutant = names(data.merged)[c(24,2,29,36)],avg.time = '15 min',group = TRUE)
 
@@ -196,6 +196,7 @@ scatterPlot(data.merged,x = "PM2.5.grimm",y = "PM2.5.BAM",linear = TRUE, avg.tim
 scatterPlot(data.merged,x = "PM2.5.mote",y = "PM2.5.BAM",linear = TRUE, avg.time = '1 hour')
 
 scatterPlot(data.merged,x = "PM2.5.odin",y = "PM2.5.BAM",linear = TRUE, avg.time = '1 hour')
+scatterPlot(selectByDate(data.merged,start=date1,end=date2),x = "PM2.5.odin",y = "PM2.5.mote",linear = TRUE, avg.time = '1 hour')
 
 for ( i in c(3,4,7,8)){
   scatterPlot(data.merged,x = names(data.merged)[i], y = "PM2.5.BAM" ,linear = TRUE)
@@ -209,4 +210,7 @@ for ( i in c(3,4,7,8)){
 # Indices       5   6   9
 
 scatterPlot(data.merged,x = "PM2.5.odin", y = "PM2.5.BAM" ,linear = TRUE, type = 'hour')
+
+
+
 

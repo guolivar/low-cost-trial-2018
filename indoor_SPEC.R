@@ -25,7 +25,6 @@ library(viridis)
 library(dplyr)
 library(RColorBrewer)
 library(purrr)
-library(magick)
 
 # Read key
 read_address <- "http://penap-data.dyndns.org:8080/output/4mWeal6PZVSlE1kyNkQdCvVadDE.json"
@@ -50,9 +49,9 @@ jreq1 <- fromJSON(rawToChar(req1$content))
 x_now <- Sys.time()
 print(x_now)
 # UTC time start
-t_start <- (as.POSIXct("2018/11/12 00:00:00",tz = "GMT-12"))
+t_start <- (as.POSIXct("2018/11/01 00:00:00",tz = "GMT-12"))
 # UTC time end
-t_end <- (as.POSIXct("2018/12/01 20:00:00",tz = "GMT-12"))
+t_end <- (as.POSIXct("2018/12/03 23:00:00",tz = "GMT-12"))
 # Set the averaging interval
 time_avg <- '15 min'
 
