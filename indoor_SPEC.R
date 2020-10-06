@@ -40,7 +40,7 @@ data.api.1min <- timeAverage(data.api,avg.time = '1 min')
 
 ## Get the SPEC data #####
 # CHOOSE IF GETTING ONLINE DATA
-go_online <- FALSE
+go_online <- TRUE
 if (go_online){
   # Fetch from PHANT server
   req1 <- curl_fetch_memory(read_address)

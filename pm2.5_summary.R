@@ -212,5 +212,33 @@ for ( i in c(3,4,7,8)){
 scatterPlot(data.merged,x = "PM2.5.odin", y = "PM2.5.BAM" ,linear = TRUE, type = 'hour')
 
 
+scatterPlot(data.merged,x = "PM2.5.BAM",y = "PM2.5.odin",
+            linear = TRUE, avg.time = '1 hour',
+            ylim=c(-5,60),xlim=c(-5,110),
+            cols='blue',pch=19)
+scatterPlot(data.merged,x = "PM2.5.BAM",y = "PM2.5.mote",
+            linear = TRUE, avg.time = '1 hour',
+            ylim=c(-5,60),xlim=c(-5,110),
+            cols='blue',pch=19)
+scatterPlot(data.merged,x = "PM2.5.BAM",y = "PM2.5.grimm",
+            linear = TRUE, avg.time = '1 hour',
+            ylim=c(-5,60),xlim=c(-5,110),
+            cols='blue',pch=19)
+
+timeVariation(data.merged,pollutant = "PM2.5.BAM")
 
 
+## Scatter plot of ALL PM2.5 estimates against BAM
+data.merged.1hr <- timeAverage(data.merged, avg.time = '1 hour')
+sp <- ggplot(data = data.merged, aes(x=PM2.5.BAM)) +
+  geom_point(aes(y=PM2.5.mote),colour = 'green') +
+  geom_point(aes(y=PM2.5.odin),colour = 'red') +
+  geom_point(aes(y=PM2.5.grimm),colour = 'black') +
+  xlim(c(0,150)) +
+  ylim(c(0,50)) +
+  scale_color_manual(values=c("green","red","black"))
+sp
+
+plot_data <- reshape(data.merged,varying = c('PM2.5.mote','PM2.5.odin','PM2.5.grimm'),
+                     timevar = 'PM2.5.BAM',
+                     direction = 'long')
